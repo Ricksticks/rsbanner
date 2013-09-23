@@ -3,9 +3,9 @@
 Plugin Name: Ricksticks Banner
 Plugin URI: 
 Description: Adds a banner admin page. Use RSBanner::get_banners() in the header of your theme to grab an array of banner objects.
-Author: Mike Walsh @ Ricksticks
+Author: The Ricksticks team
 Author URI: http://ricksticks.com
-Version: 20120830a
+Version: 20130923a
 */
 
 /*  Copyright 2012  Ricksticks  (email : admin@ricksticks.com)
@@ -26,6 +26,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 class RSBanner
 {
+	static $advanced_chooser = true;
+	
 	function __construct()
 	{
 		add_action('admin_menu', array(&$this, 'admin_menu'));
@@ -36,19 +38,26 @@ class RSBanner
 	{
 		$banners = array();
 		
-		foreach (range(1, 4) as $n)
+		$rsb_total = get_option('rsb_total');
+		
+		foreach (range(1, $rsb_total) as $n)
 		{
 			$image = get_option('rsb_image_'.$n);
 			$link  = get_option('rsb_link_'.$n);
 			
-			if (empty($image) || empty($link))
+			if (empty($image))
 			{
 				continue;
 			}
 			
 			$banner = new stdClass();
 			$banner->image = wp_get_attachment_url($image);
-			$banner->link  = get_page_link($link);
+			
+			$banner->link = '';
+			if ( ! empty($link))
+			{
+				$banner->link = get_page_link($link);
+			}
 			
 			$banners[] = $banner;
 		}
@@ -65,6 +74,12 @@ class RSBanner
 	
 	function admin_init()
 	{
+		if (self::$advanced_chooser)
+		{
+			wp_enqueue_media();
+			wp_enqueue_script('rsbanner', plugin_dir_url(__FILE__).'rsbanner.js', 'jquery', '1.0');
+		}
+		
 		add_filter('plugin_action_links_'.plugin_basename(__FILE__), array(&$this, 'plugin_action_links'));
 	}
 	
@@ -88,10 +103,12 @@ class RSBanner
 	{
 		$message = $this->admin_page_post_handler();
 		
+		// For basic chooser
 		$images = get_posts(array('post_type' => 'attachment'));
-		$pages  = get_pages(array());
 		
-		foreach (range(1, 4) as $n)
+		$rsb_total = get_option('rsb_total');
+		
+		foreach (range(1, $rsb_total) as $n)
 		{
 			$rsb_image[$n] = get_option('rsb_image_'.$n);
 			$rsb_link[$n]  = get_option('rsb_link_'.$n);
@@ -102,12 +119,17 @@ class RSBanner
 	
 	function admin_page_post_handler()
 	{
+		$rsb_total = get_option('rsb_total');
+		
 		if ($_POST['submit'])
 		{
-			foreach (range(1, 4) as $n)
+			$total = trim(htmlentities($_REQUEST['rsb_total']));
+			update_option('rsb_total', $total);
+			
+			foreach (range(1, $rsb_total) as $n)
 			{
-				$image = trim(htmlentities($_POST['rsb_image_'.$n]));
-				$link  = trim(htmlentities($_POST['rsb_link_'.$n]));
+				$image = trim(htmlentities($_REQUEST['rsb_image_'.$n]));
+				$link  = trim(htmlentities($_REQUEST['rsb_link_'.$n]));
 				update_option('rsb_image_'.$n, $image);
 				update_option('rsb_link_'.$n,  $link);
 			}
